@@ -1,0 +1,71 @@
+# Linguagem Utilizada para Desenvolver a Aplicação
+language: python
+
+# Versão que a aplicação suporta.
+python:
+  - "3.7.9"
+
+os: linux
+dist: xenial
+
+before_install:
+- openssl aes-256-cbc -K $encrypted_bb9da03d3e70_key -iv $encrypted_bb9da03d3e70_iv
+  -in lab-devops-cloudjr-08adb79770b8.json.enc -out ../lab-devops-cloudjr-08adb79770b8.json
+  -d
+
+jobs:
+  include:
+    - stage: Build
+
+      name: "Testes Unitarios"
+      # Instalação de Módulos que são necessários para a Aplicação.
+      install:
+        - pip install flask flask-wtf coverage
+      script:  # Defini o script de Teste que deve rodar toda vez que o código for alterado.
+        - coverage run test.py || travis_terminate 1;
+        - coverage report app.py || travis_terminate 1;
+        - coverage xml app.py || travis_terminate 1;
+
+    - stage: STG Deploy
+      name: "Deploy no Heroku"
+      script: skip
+      # Definir o Deploy no Heroku
+      deploy:
+        provider: heroku
+        strategy: api
+        api_key: $HEROKU_API_KEY
+        edge: true
+        app: devopslab-jr
+        on:
+          branch: master
+
+    - stage: STG TEST
+      name: "Teste Deploy Heroku"
+      script:
+        - curl https://devopslab-jr.herokuapp.com/ | grep Hello || travis_terminate 1;
+
+    - stage: PROD Deploy
+      name: "Deploy App Engine Google"
+      script: skip
+      # Definir o Deploy no Google Cloud
+      deploy:
+        provider: gae
+        keyfile: ../lab-devops-cloudjr-08adb79770b8.json
+        project: lab-devops-cloudjr
+        on:
+          branch: master
+
+    - stage: PROD TEST
+      name: "Teste Deploy App Engine"
+      script:
+        - curl https://lab-devops-cloudjr.uc.r.appspot.com/ | grep Hello || travis_terminate 1;
+        
+addons:
+  sonarcloud:
+    organization: jnrimpacta
+    token: ${SONAR_TOKEN}
+    
+# Defini o script de Teste que deve rodar toda vez que o código for alterado.      
+script:                                                                                                                                                                                                  
+  - python -m unittest -v test || travis_terminate 1;
+  - sonar-scanner || travis_terminate 1;
